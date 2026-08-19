@@ -18,6 +18,13 @@ extern void mandelbrotThread(
     int maxIterations,
     int output[]);
 
+extern void mandelbrotThreadProfile(
+    int numThreads,
+    float x0, float y0, float x1, float y1,
+    int width, int height,
+    int maxIterations,
+    int output[]);
+
 extern void writePPMImage(
     int* data,
     int width, int height,
@@ -46,6 +53,7 @@ void usage(const char* progname) {
     printf("Program Options:\n");
     printf("  -t  --threads <N>  Use N threads\n");
     printf("  -v  --view <INT>   Use specified view settings\n");
+    printf("  -p  --profile      Print per-thread timings from an untimed run\n");
     printf("  -?  --help         This message\n");
 }
 
@@ -72,6 +80,7 @@ int main(int argc, char** argv) {
     const unsigned int height = 1200;
     const int maxIterations = 256;
     int numThreads = 2;
+    bool profileThreads = false;
 
     float x0 = -2;
     float x1 = 1;
@@ -83,11 +92,12 @@ int main(int argc, char** argv) {
     static struct option long_options[] = {
         {"threads", 1, 0, 't'},
         {"view", 1, 0, 'v'},
+        {"profile", 0, 0, 'p'},
         {"help", 0, 0, '?'},
         {0 ,0, 0, 0}
     };
 
-    while ((opt = getopt_long(argc, argv, "t:v:?", long_options, NULL)) != EOF) {
+    while ((opt = getopt_long(argc, argv, "t:v:p?", long_options, NULL)) != EOF) {
 
         switch (opt) {
         case 't':
@@ -108,6 +118,11 @@ int main(int argc, char** argv) {
                 fprintf(stderr, "Invalid view index\n");
                 return 1;
             }
+            break;
+        }
+        case 'p':
+        {
+            profileThreads = true;
             break;
         }
         case '?':
@@ -166,6 +181,13 @@ int main(int argc, char** argv) {
 
     // compute speedup
     printf("\t\t\t\t(%.2fx speedup from %d threads)\n", minSerial/minThread, numThreads);
+
+    if (profileThreads) {
+        printf("\nPer-thread timings from a separate untimed run:\n");
+        memset(output_thread, 0, width * height * sizeof(int));
+        mandelbrotThreadProfile(numThreads, x0, y0, x1, y1,
+                                width, height, maxIterations, output_thread);
+    }
 
     delete[] output_serial;
     delete[] output_thread;

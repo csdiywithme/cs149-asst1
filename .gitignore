@@ -1,0 +1,16 @@
+# Local ISPC toolchain archive and extracted directory
+/ispc-v*.tar.gz
+/ispc-v*/
+
+# Assignment build products
+/prog*/objs/
+/prog*/*.o
+/prog1_mandelbrot_threads/mandelbrot
+/prog2_vecintrin/myexp
+/prog3_mandelbrot_ispc/mandelbrot_ispc
+/prog4_sqrt/sqrt
+/prog5_saxpy/saxpy
+/prog6_kmeans/kmeans
+/prog*/*.ppm
+/prog*/*.log
+/prog*/*.png
