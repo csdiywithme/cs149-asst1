@@ -1,9 +1,20 @@
 CXX=g++ -m64
 CXXFLAGS=-I../common -Iobjs/ -O3 -Wall -fPIC -ffp-contract=off
-ISPC=ispc
-# note: requires AVX2
-# disabling AVX2 FMA since it causes a difference in output compared to reference on Mandelbrot 
-ISPCFLAGS=-O3 --target=avx2-i32x8 --arch=x86-64 --opt=disable-fma --pic
+LOCAL_ISPC=$(firstword $(wildcard ../ispc-v*/bin/ispc))
+ISPC?=$(if $(LOCAL_ISPC),$(LOCAL_ISPC),ispc)
+ISPC_TASK_COUNT?=100
+
+ifeq ($(shell uname -m),arm64)
+ISPC_TARGET?=neon-i32x8
+ISPC_ARCH?=aarch64
+else
+ISPC_TARGET?=avx2-i32x8
+ISPC_ARCH?=x86-64
+endif
+
+# Disable FMA so Mandelbrot output remains comparable with the reference.
+ISPCFLAGS=-O3 --target=$(ISPC_TARGET) --arch=$(ISPC_ARCH) --opt=disable-fma --pic \
+	-DMANDELBROT_TASK_COUNT=$(ISPC_TASK_COUNT)
 
 APP_NAME=mandelbrot_ispc
 OBJDIR=objs
@@ -39,6 +50,5 @@ $(OBJDIR)/%.o: $(COMMONDIR)/%.cpp
 
 $(OBJDIR)/main.o: $(OBJDIR)/mandelbrot_ispc.h $(COMMONDIR)/CycleTimer.h
 
-$(OBJDIR)/%_ispc.h $(OBJDIR)//%_ispc.o: %.ispc
+$(OBJDIR)/%_ispc.h $(OBJDIR)/%_ispc.o: %.ispc
 		$(ISPC) $(ISPCFLAGS) $< -o $(OBJDIR)/$*_ispc.o -h $(OBJDIR)/$*_ispc.h
-
