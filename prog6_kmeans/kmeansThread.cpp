@@ -18,6 +18,9 @@ typedef struct {
   int *clusterAssignments;
   double *currCost;
   int M, N, K;
+  double totalAssignmentsTime, totalCentroidsTime, totalCostTime;
+  int threadId;
+  int numThreads;
 } WorkerArgs;
 
 
@@ -65,27 +68,65 @@ double dist(double *x, double *y, int nDim) {
  * Assigns each data point to its "closest" cluster centroid.
  */
 void computeAssignments(WorkerArgs *const args) {
-  double *minDist = new double[args->M];
-  
-  // Initialize arrays
-  for (int m =0; m < args->M; m++) {
-    minDist[m] = 1e30;
-    args->clusterAssignments[m] = -1;
-  }
+  const int pointStart = args->M * args->threadId / args->numThreads;
+  const int pointEnd = args->M * (args->threadId + 1) / args->numThreads;
 
   // Assign datapoints to closest centroids
-  for (int k = args->start; k < args->end; k++) {
-    for (int m = 0; m < args->M; m++) {
+  for (int m = pointStart; m < pointEnd; m++) {
+    double minDist = 1e30;
+    int closestCluster = -1;
+
+    for (int k = args->start; k < args->end; k++) {
       double d = dist(&args->data[m * args->N],
                       &args->clusterCentroids[k * args->N], args->N);
-      if (d < minDist[m]) {
-        minDist[m] = d;
-        args->clusterAssignments[m] = k;
+      if (d < minDist) {
+        minDist = d;
+        closestCluster = k;
       }
     }
+    args->clusterAssignments[m] = closestCluster;
+  }
+}
+
+void computeAssignmentsThread(WorkerArgs *const args, int numThreads) {
+  static constexpr int MAX_THREADS = 32;
+
+  if (numThreads < 1 || numThreads > MAX_THREADS) {
+    fprintf(stderr, "Error: Thread count must be between 1 and %d\n",
+            MAX_THREADS);
+    exit(1);
   }
 
-  delete[] minDist;
+  // Creates thread objects that do not yet represent a thread.
+  std::thread workers[MAX_THREADS];
+  WorkerArgs workerArgs[MAX_THREADS];
+
+  for (int i = 0; i < numThreads; i++) {
+    workerArgs[i].data = args->data;
+    workerArgs[i].clusterCentroids = args->clusterCentroids;
+    workerArgs[i].clusterAssignments = args->clusterAssignments;
+    workerArgs[i].currCost = args->currCost;
+    workerArgs[i].M = args->M;
+    workerArgs[i].N = args->N;
+    workerArgs[i].K = args->K;
+    workerArgs[i].start = args->start;
+    workerArgs[i].end = args->end;
+    workerArgs[i].numThreads = numThreads;
+    workerArgs[i].threadId = i;
+  }
+
+  // Spawn the worker threads.  Note that only numThreads-1 std::threads
+  // are created and the main application thread is used as a worker
+  // as well.
+  for (int i = 1; i < numThreads; i++) {
+    workers[i] = std::thread(computeAssignments, &workerArgs[i]);
+  }
+  computeAssignments(&workerArgs[0]);
+
+  // join worker threads
+  for (int i = 1; i < numThreads; i++) {
+    workers[i].join();
+  }
 }
 
 /**
@@ -188,6 +229,11 @@ void kMeansThread(double *data, double *clusterCentroids, int *clusterAssignment
   args.M = M;
   args.N = N;
   args.K = K;
+  args.totalAssignmentsTime = 0.0;
+  args.totalCentroidsTime = 0.0;
+  args.totalCostTime = 0.0;
+
+  double timeStamp1, timeStamp2;
 
   // Initialize arrays to track cost
   for (int k = 0; k < K; k++) {
@@ -196,7 +242,6 @@ void kMeansThread(double *data, double *clusterCentroids, int *clusterAssignment
   }
 
   /* Main K-Means Algorithm Loop */
-  int iter = 0;
   while (!stoppingConditionMet(prevCost, currCost, epsilon, K)) {
     // Update cost arrays (for checking convergence criteria)
     for (int k = 0; k < K; k++) {
@@ -207,13 +252,25 @@ void kMeansThread(double *data, double *clusterCentroids, int *clusterAssignment
     args.start = 0;
     args.end = K;
 
-    computeAssignments(&args);
+    timeStamp1 = CycleTimer::currentSeconds();
+    computeAssignmentsThread(&args, 4);
+    timeStamp2 = CycleTimer::currentSeconds();
+    args.totalAssignmentsTime += (timeStamp2 - timeStamp1);
+
     computeCentroids(&args);
+    timeStamp1 = CycleTimer::currentSeconds();
+    args.totalCentroidsTime += (timeStamp1 - timeStamp2);
+
     computeCost(&args);
-
-    iter++;
+    timeStamp2 = CycleTimer::currentSeconds();
+    args.totalCostTime += (timeStamp2 - timeStamp1);
   }
-
+  printf("[K-Means Thread]:\t\t[%.3f] ms\t[%.3f] ms\t[%.3f] ms\t[%.3f] ms\n",
+         (args.totalAssignmentsTime + args.totalCentroidsTime +
+          args.totalCostTime) *
+             1000,
+         args.totalAssignmentsTime * 1000, args.totalCentroidsTime * 1000,
+         args.totalCostTime * 1000);
   delete[] currCost;
   delete[] prevCost;
 }
