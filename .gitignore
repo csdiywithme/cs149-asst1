@@ -11,6 +11,7 @@
 /prog4_sqrt/sqrt
 /prog5_saxpy/saxpy
 /prog6_kmeans/kmeans
+/prog6_kmeans/data.dat
 /prog*/*.ppm
 /prog*/*.log
 /prog*/*.png
