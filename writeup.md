@@ -3,6 +3,9 @@
 See also [Mandelbrot with ISPC SIMD and Tasks](prog3_mandelbrot_ispc/README.md)
 for the Program 3 multicore SIMD implementation and measurements.
 
+The [iterative square-root SIMD study](prog4_sqrt/README.md) documents Program
+4's best- and worst-case input experiments on Apple M1.
+
 This project parallelizes a Mandelbrot renderer with C++ threads and studies
 how workload decomposition and heterogeneous CPU cores affect scaling. The
 final implementation reaches **3.74x speedup with four threads** and up to

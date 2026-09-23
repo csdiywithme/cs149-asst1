@@ -1,8 +1,17 @@
 CXX=g++ -m64 -march=native
 CXXFLAGS=-I../common -Iobjs/ -O3 -Wall
-ISPC=ispc
-# note: requires AVX2 capable machine
-ISPCFLAGS=-O3 --target=avx2-i32x8 --arch=x86-64 --pic
+LOCAL_ISPC=$(firstword $(wildcard ../ispc-v*/bin/ispc))
+ISPC?=$(if $(LOCAL_ISPC),$(LOCAL_ISPC),ispc)
+
+ifeq ($(shell uname -m),arm64)
+ISPC_TARGET?=neon-i32x8
+ISPC_ARCH?=aarch64
+else
+ISPC_TARGET?=avx2-i32x8
+ISPC_ARCH?=x86-64
+endif
+
+ISPCFLAGS=-O3 --target=$(ISPC_TARGET) --arch=$(ISPC_ARCH) --pic
 
 
 APP_NAME=sqrt
@@ -39,6 +48,5 @@ $(OBJDIR)/%.o: $(COMMONDIR)/%.cpp
 
 $(OBJDIR)/main.o: $(OBJDIR)/$(APP_NAME)_ispc.h $(COMMONDIR)/CycleTimer.h
 
-$(OBJDIR)/%_ispc.h $(OBJDIR)//%_ispc.o: %.ispc
+$(OBJDIR)/%_ispc.h $(OBJDIR)/%_ispc.o: %.ispc
 		$(ISPC) $(ISPCFLAGS) $< -o $(OBJDIR)/$*_ispc.o -h $(OBJDIR)/$*_ispc.h
-

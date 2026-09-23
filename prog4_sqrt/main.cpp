@@ -27,14 +27,18 @@ int main() {
     float* output = new float[N];
     float* gold = new float[N];
 
-    for (unsigned int i=0; i<N; i++)
+    for (unsigned int i=0; i<N; i+=4)
     {
         // TODO: CS149 students.  Attempt to change the values in the
         // array here to meet the instructions in the handout: we want
         // to you generate best and worse-case speedups
         
         // starter code populates array with random input values
-        values[i] = .001f + 2.998f * static_cast<float>(rand()) / RAND_MAX;
+        for(int j = i + 1; j < N && j < i + 4; j ++)
+        {
+            values[j] = 1.f;
+        }
+        values[i] = 2.9989f + 0.001f * static_cast<float>(rand()) / RAND_MAX;
     }
 
     // generate a gold version to check results
